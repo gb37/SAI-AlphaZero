@@ -4,6 +4,7 @@ import coloredlogs
 
 from Coach import Coach
 from othello.OthelloGame import OthelloGame as Game
+#from othello.pytorch.NNet import NNetWrapper as nn
 from othello.keras.NNet import NNetWrapper as nn
 from utils import *
 
@@ -49,7 +50,7 @@ def main():
         log.info("Loading 'trainExamples' from file...")
         c.loadTrainExamples()
 
-    log.info('Starting the learning process 🎉')
+    log.info('Starting the learning process')
     c.learn()
 
 

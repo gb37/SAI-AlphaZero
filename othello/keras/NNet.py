@@ -71,13 +71,7 @@ class NNetWrapper(NeuralNet):
         #print(v)
 
         #print('PREDICTION TIME TAKEN : {0:03f}'.format(time.time()-start))
-        return pi[0], v[0]
-
-    def predict_alpha(self, board, komi):
-        board = board[np.newaxis, :, :]
-        nn_input = [board, komi]
-        alpha = self.nnet.model_alpha.predict(nn_input)
-        return alpha[0]
+        return pi[0], v[0], alpha[0]
         
     def save_checkpoint(self, folder='checkpoint', filename='checkpoint.pth.tar'):
         filepath = os.path.join(folder, filename)

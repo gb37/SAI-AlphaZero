@@ -4,6 +4,7 @@ import sys
 from collections import deque
 from pickle import Pickler, Unpickler
 from random import shuffle
+from scipy.stats import truncnorm
 
 import numpy as np
 from tqdm import tqdm
@@ -47,26 +48,23 @@ class Coach():
         """
         trainExamples = []
         board = self.game.getInitBoard()
+
+        k = self.get_truncated_normal()
+        starting_komi = np.array([int(k.rvs())])
+        alpha = np.array([float(0)])
+        branched = False
+        self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree
+
         self.curPlayer = 1
         episodeStep = 0
-
-# Truncated Normal Distribution
-#from scipy.stats import truncnorm
-#def get_truncated_normal(mean=0, sd=1, low=0, upp=10):
-#    return truncnorm(
-#        (low - mean) / sd, (upp - mean) / sd, loc=mean, scale=sd)
-
-        komi = np.array([float(0)])
-        branched = False
-#        branched = True
-        self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree
-        #print("RESET MCTS")
 
         while True:
             episodeStep += 1
             canonicalBoard = self.game.getCanonicalForm(board, self.curPlayer)
-            #print(canonicalBoard)
+            print(self.curPlayer)
             temp = int(episodeStep < self.args.tempThreshold)
+
+            komi = alpha + starting_komi
             
             pi = self.mcts.getActionProb(canonicalBoard, komi, temp=temp)
             sym = self.game.getSymmetries(canonicalBoard, pi)
@@ -76,25 +74,27 @@ class Coach():
             action = np.random.choice(len(pi), p=pi)
             board, self.curPlayer = self.game.getNextState(board, self.curPlayer, action)
 
+            print(alpha)
+            print(starting_komi)
+            print(komi)
+            starting_komi = -starting_komi
+
             r = self.game.getGameEnded(board, self.curPlayer)
 
             if r != 0:
                 # Branching
                 if branched == False:
-                    #print(len(trainExamples))
-                    #print("BRANCHING!")
-                    # Pick a state
-                    branch = np.random.choice(len(trainExamples))
                     branched = True
                     r = 0
+                    # Pick a state
+                    branch = np.random.choice(len(trainExamples))
                     self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree
                     branch = trainExamples[branch]
                     board = branch[0]
                     self.curPlayer = branch[1]
-                    #print(board)
-                    #print(self.curPlayer)
-                    
-                    #komi = np.array([float(0.5)])
+                    canonicalBoard = self.game.getCanonicalForm(board, self.curPlayer)
+                    # Read expected score difference (alpha)
+                    Ps, v, alpha = self.nnet.predict(canonicalBoard, komi)
                 else:
                     return [(x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer)), x[3]) for x in trainExamples]
 
@@ -186,3 +186,9 @@ class Coach():
 
             # examples based on the model were already collected (loaded)
             self.skipFirstSelfPlay = True
+
+    # Truncated Normal Distribution
+    def get_truncated_normal(self, mean=0, sd=33, low=-65, upp=65):
+        return truncnorm(
+            (low - mean) / sd, (upp - mean) / sd, loc=mean, scale=sd)
+
